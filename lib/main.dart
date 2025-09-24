@@ -8,6 +8,8 @@ import 'app_scaffold.dart';
 import 'agenda_page.dart';
 import 'configuracion_page.dart';
 import 'theme_provider.dart';
+import 'app_text.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 void main() {  
@@ -48,12 +50,32 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  String nombreVeterinaria = '';
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomText();
+  }
+  Future<void> _loadCustomText() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      nombreVeterinaria = prefs.getString('custom_text') ?? 'Mi Veterinaria';
+    });
+  }
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: widget.title,
-      body: Center(
-        child: Text('Agenda'),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Center(
+            child: Text(
+              nombreVeterinaria,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+        ],
       ),
     );
   }
