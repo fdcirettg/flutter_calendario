@@ -17,10 +17,45 @@ class LogoStorageService {
 
   // Guardar logo (reemplaza el existente)
   static Future<void> saveLogo(String name, Uint8List imageData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Convertimos los bytes a Base64 para almacenamiento
+      String base64Image = base64Encode(imageData);
+      // Guardar los datos del logo en SharedPreferences
+      await prefs.setString(_logoKey, base64Image);
+      await prefs.setString(_logoNameKey, name);
+      await prefs.setInt(_logoSizeKey, imageData.length);
+
+    } catch (e) {
+      throw Exception('Error saving logo: $e');
+    }
   }
 
   // Obtener el logo
   static Future<Map<String, dynamic>?> getLogo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? base64Image  = prefs.getString(_logoKey);
+      if (base64Image != null) {
+        // Convertimos de Base64 a bytes
+        Uint8List imageData = base64Decode(base64Image);
+        String? name = prefs.getString(_logoNameKey);
+        int? size = prefs.getInt(_logoSizeKey);
+        // Obtener dimensiones de la imagen
+        final width = await decodeImageFromList(imageData).then((img) => img.width);
+        final height = await decodeImageFromList(imageData).then((img) => img.height);
+        return {
+          'name': name ?? 'Logo',
+          'width': width,
+          'height': height,
+          'image_bytes': imageData,
+          'size': size ?? 0,
+          'created_at': DateTime.now().toIso8601String(),
+        };
+      }
+    } catch (e) {
+      throw Exception('Error retrieving logo: $e');
+    }
   }
 
   // Eliminar logo
