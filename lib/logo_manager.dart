@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -103,7 +102,6 @@ class LogoManager extends StatefulWidget {
 
 class _LogoManagerState extends State<LogoManager> {
  Map<String, dynamic>? _currentLogo;
- final ImagePicker _picker = ImagePicker();
  bool _isLoading = false;
   @override
   void initState() {
@@ -205,10 +203,6 @@ class _LogoManagerState extends State<LogoManager> {
     );
   }
 
-  // Mostrar información de depuración
-  Future<void> _showDebugInfo() async {
-  }
-
   // Mostrar opciones de selección
   void _showImageSourceOptions() {
     showModalBottomSheet(
@@ -243,12 +237,57 @@ class _LogoManagerState extends State<LogoManager> {
   
   // Nuevo método para mostrar el diálogo de URL
   void _showUrlDialog() {
+    final urlController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+       return AlertDialog(
+        title: const Text('Pegar URL de la imagen'),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(
+            hintText: 'Ejemplo: https://ejemplo.com/logo.png',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (urlController.text.isNotEmpty) {
+                Navigator.of(dialogContext).pop();
+                _processAndSaveLogoFromUrl(urlController.text);
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ]
+       );
+      }
+    );
   }
 
   void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -259,14 +298,203 @@ class _LogoManagerState extends State<LogoManager> {
         padding: const EdgeInsets.all(16.0),
         child: Column( 
           crossAxisAlignment: CrossAxisAlignment.center,
-          children: [ Text('Logo Manager'),]
+          children: [ 
+            const SizedBox(height: 32), // Espacio superior
+            //Contenedor del logo
+            Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300, width: 2),
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.grey.shade50,
+              ),
+              child: _isLoading
+              ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Procesando imagen...', style: TextStyle(fontSize: 16)),
+                  ],
+                ),
+                )
+              : _currentLogo != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.memory(
+                      _currentLogo!['image_bytes'],
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
+                  )
+                  : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_outlined,
+                        size: 64,
+                        color: Colors.grey.shade400,
+                      ),
+                    
+                    const SizedBox(height:16),
+                    const Text('Sin logo',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('Añade un logo para personalizar la app',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed:  _isLoading ? null : _showImageSourceOptions,
+                        icon: Icon(_currentLogo != null ? Icons.edit : Icons.add_a_photo),
+                        label: Text(_currentLogo != null ? 'Cambiar Logo' : 'Añadir Logo'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical:16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+            // Botón de eliminar (solo si hay logo)
+            if (_currentLogo != null && !_isLoading)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _confirmDeleteLogo,
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  label: const Text('Eliminar logo', style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            
+            const SizedBox(height: 24),
+            
+            // Información del logo actual
+            if (_currentLogo != null)
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue.shade600),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Información del logo:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildInfoRow('Nombre:', _currentLogo!['name']),
+                      _buildInfoRow('Pixeles:', '${_currentLogo!['width']} x ${_currentLogo!['height']}'),
+                      _buildInfoRow('Tamaño:', '${(_currentLogo!['size_bytes'] / 1024).toStringAsFixed(1)} KB'),
+                      _buildInfoRow('Creado:', _formatDate(_currentLogo!['created_at'])),
+                      _buildInfoRow('Almacenado en:', 'SharedPreferences'),
+                    ],
+                  ),
+                ),
+              ),
+                          const Spacer(),
+            
+            // Información adicional
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.blue.shade600, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Las imágenes se redimensionan automáticamente a máximo 512x512 píxeles',
+                          style: TextStyle(
+                            color: Colors.blue.shade800,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Usando SharedPreferences para almacenamiento local',
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),                    
+                    ],
+                    
+                  ),
+                  
+            ),
+
+          ],
         ),
       ),
     );
   }
 
   Widget _buildInfoRow(String label, String value) {
-
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatDate(String dateString) {
