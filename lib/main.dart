@@ -10,7 +10,7 @@ import 'configuracion_page.dart';
 import 'theme_provider.dart';
 import 'app_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'logo_manager.dart';
 
 void main() {  
   Get.put(SettingsController());
@@ -30,6 +30,7 @@ class MyApp extends StatelessWidget {
       GoRoute(path: '/', builder: (context, state) => const MyHomePage(title:'Inicio')),
       GoRoute(path: '/agenda', builder: (context, state) => AgendaPage()),
       GoRoute(path: '/configuracion', builder: (context, state) => ConfiguracionPage()),
+      GoRoute(path: '/logomanager', builder: (context, state) => LogoManager()),
     ]);
     return MaterialApp.router( title: 'Agenda Veterinaria',
       routerConfig: router,
