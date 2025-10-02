@@ -1,6 +1,6 @@
 //AppLogo
 import 'package:flutter/material.dart';
-import 'darth.math' as math;
+import 'dart:math' as math;
 import 'logo_manager.dart';
 
 class AppLogo extends StatelessWidget {
@@ -18,7 +18,7 @@ class AppLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?> (
-      future: LogoStorageService().getLogo(),
+      future: LogoStorageService.getLogo(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
