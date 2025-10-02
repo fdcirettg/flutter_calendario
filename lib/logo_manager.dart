@@ -48,7 +48,7 @@ class LogoStorageService {
           'width': width,
           'height': height,
           'image_bytes': imageData,
-          'size': size ?? 0,
+          'size_bytes': size ?? 0,
           'created_at': DateTime.now().toIso8601String(),
         };
       }
@@ -101,8 +101,10 @@ class LogoManager extends StatefulWidget {
 }
 
 class _LogoManagerState extends State<LogoManager> {
- Map<String, dynamic>? _currentLogo;
- bool _isLoading = false;
+  Map<String, dynamic>? _currentLogo;
+  //final ImagePicker _picker = ImagePicker();
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -112,54 +114,68 @@ class _LogoManagerState extends State<LogoManager> {
   // Cargar logo desde el servicio de almacenamiento
   Future<void> _loadLogo() async {
     try {
-       final logo = await LogoStorageService.getLogo();
-       setState(() {
-         _currentLogo = logo;
-       });
+      final logo = await LogoStorageService.getLogo();
+      if (mounted) {
+        setState(() {
+          _currentLogo = logo;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading logo: $e');
-      _showErrorSnackBar('Error loading logo: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error cargando el logo');
+      }
     }
   }
+
 
 
   // Nuevo método para procesar y guardar logo desde una URL
   Future<void> _processAndSaveLogoFromUrl(String url) async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
-      // Obtener los bytes de la imagen desde la URL
+      setState(() => _isLoading = true);
+      
       final response = await http.get(Uri.parse(url));
+      
       if (response.statusCode == 200) {
-        final imageData = response.bodyBytes;
-        // Procesar y guardar el logo
+        final Uint8List imageData = response.bodyBytes;
         await _processAndSaveLogo(imageData);
       } else {
-        throw Exception('Failed to load image from URL');
+        throw Exception('Failed to download image from URL');
       }
     } catch (e) {
-      _showErrorSnackBar('Error processing logo from URL: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error al descargar imagen desde URL: $e');
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   // Procesar y guardar logo (ahora toma los bytes directamente)
   Future<void> _processAndSaveLogo(Uint8List imageData) async {
     try {
-      // Redimensionar imagen
-      final resizedImage = await ImageUtils.resizeImage(imageData);
-      // Guardar logo
-      final String logoName = 'logo_${DateTime.now().millisecondsSinceEpoch}.png';
-      await LogoStorageService.saveLogo(logoName, resizedImage);
+      // Redimensionar imagen a máximo 512x512
+      final Uint8List resizedImageData = await ImageUtils.resizeImage(imageData);
+      
+      // Generar nombre único
+      final String logoName = 'Logo_${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Guardar en el servicio de almacenamiento
+      await LogoStorageService.saveLogo(logoName, resizedImageData);
+      
       // Recargar logo
       await _loadLogo();
-      _showSuccessSnackBar('Logo processed and saved successfully');
+      
+      if (mounted) {
+        _showSuccessSnackBar('Logo guardado exitosamente');
+      }
     } catch (e) {
-      _showErrorSnackBar('Error processing logo: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error al procesar logo: $e');
+      }
     }
   }
 
@@ -167,39 +183,73 @@ class _LogoManagerState extends State<LogoManager> {
   Future<void> _removeLogo() async {
     try {
       await LogoStorageService.deleteLogo();
-      setState(() {
-        _currentLogo = null;
-      });
       await _loadLogo();
-      _showSuccessSnackBar('Logo deleted successfully');
+      if (mounted) {
+        _showSuccessSnackBar('Logo eliminado');
+      }
     } catch (e) {
-      _showErrorSnackBar('Error deleting logo: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error al eliminar logo: $e');
+      }
     }
   }
 
   // Confirmar eliminación
   void _confirmDeleteLogo() {
-    showDialog(context: context,
-    builder: (BuildContext dialogContext) {
-      return AlertDialog(
-        title: const Text('Eliminar Logo'),
-        content: const Text('¿Estás seguro/a de que quieres eliminar el logo actual?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Eliminar Logo'),
+          content: const Text('¿Estás seguro de que quieres eliminar el logo actual?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _removeLogo();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Mostrar información de depuración
+  Future<void> _showDebugInfo() async {
+    final info = await LogoStorageService.getStorageInfo();
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Información de Debug'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Total de claves: ${info['total_keys']}'),
+              Text('Tiene logo: ${info['has_logo']}'),
+              const SizedBox(height: 8),
+              const Text('Claves en SharedPreferences:'),
+              ...List<String>.from(info['keys']).map((key) => Text('- $key')),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _removeLogo();
-          },
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('Eliminar'),
-        ),
-      ],
-      );
-    },
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -213,23 +263,23 @@ class _LogoManagerState extends State<LogoManager> {
             children: [
               ListTile(
                 leading: const Icon(Icons.link),
-                title: const Text('Desde URL'),
+                title: const Text('Pegar URL de la imagen'),
                 onTap: () {
                   Navigator.of(bottomSheetContext).pop();
                   _showUrlDialog();
                 },
               ),
-              if (_currentLogo != null) 
-              ListTile(
+              if (_currentLogo != null)
+                ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Eliminar Logo', style: TextStyle(color: Colors.red)),
+                  title: const Text('Eliminar logo actual'),
                   onTap: () {
                     Navigator.of(bottomSheetContext).pop();
                     _confirmDeleteLogo();
-                },
-              ),
+                  },
+                ),
             ],
-           ),
+          ),
         );
       },
     );
@@ -241,36 +291,37 @@ class _LogoManagerState extends State<LogoManager> {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-       return AlertDialog(
-        title: const Text('Pegar URL de la imagen'),
-        content: TextField(
-          controller: urlController,
-          decoration: const InputDecoration(
-            hintText: 'Ejemplo: https://ejemplo.com/logo.png',
-            border: OutlineInputBorder(),
+        return AlertDialog(
+          title: const Text('Pegar URL de la imagen'),
+          content: TextField(
+            controller: urlController,
+            decoration: const InputDecoration(
+              hintText: 'Ej: https://example.com/logo.png',
+              border: OutlineInputBorder(),
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (urlController.text.isNotEmpty) {
-                Navigator.of(dialogContext).pop();
-                _processAndSaveLogoFromUrl(urlController.text);
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ]
-       );
-      }
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (urlController.text.isNotEmpty) {
+                  Navigator.of(dialogContext).pop();
+                  _processAndSaveLogoFromUrl(urlController.text);
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -281,11 +332,12 @@ class _LogoManagerState extends State<LogoManager> {
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -296,11 +348,12 @@ class _LogoManagerState extends State<LogoManager> {
       title: 'Logo Manager',
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column( 
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
-          children: [ 
-            const SizedBox(height: 32), // Espacio superior
-            //Contenedor del logo
+          children: [
+            const SizedBox(height: 24),
+            
+            // Contenedor del logo
             Container(
               width: 200,
               height: 200,
@@ -310,60 +363,74 @@ class _LogoManagerState extends State<LogoManager> {
                 color: Colors.grey.shade50,
               ),
               child: _isLoading
-              ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Procesando imagen...', style: TextStyle(fontSize: 16)),
-                  ],
-                ),
-                )
-              : _currentLogo != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.memory(
-                      _currentLogo!['image_bytes'],
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                    ),
-                  )
-                  : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.image_outlined,
-                        size: 64,
-                        color: Colors.grey.shade400,
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Procesando imagen...'),
+                        ],
                       ),
-                    
-                    const SizedBox(height:16),
-                    const Text('Sin logo',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Añade un logo para personalizar la app',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed:  _isLoading ? null : _showImageSourceOptions,
-                        icon: Icon(_currentLogo != null ? Icons.edit : Icons.add_a_photo),
-                        label: Text(_currentLogo != null ? 'Cambiar Logo' : 'Añadir Logo'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical:16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    )
+                  : _currentLogo != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.memory(
+                            _currentLogo!['image_bytes'],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
                           ),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.image_outlined,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Sin logo',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Toca el botón para agregar uno',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+            ),
+            
+            const SizedBox(height: 32),
+            
+            // Botón principal de acción
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _showImageSourceOptions,
+                icon: Icon(_currentLogo != null ? Icons.edit : Icons.add_a_photo),
+                label: Text(_currentLogo != null ? 'Cambiar logo' : 'Agregar logo'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
             // Botón de eliminar (solo si hay logo)
             if (_currentLogo != null && !_isLoading)
               SizedBox(
@@ -416,7 +483,8 @@ class _LogoManagerState extends State<LogoManager> {
                   ),
                 ),
               ),
-                          const Spacer(),
+            
+            const Spacer(),
             
             // Información adicional
             Container(
@@ -454,13 +522,7 @@ class _LogoManagerState extends State<LogoManager> {
                   ),
                 ],
               ),
-            ),                    
-                    ],
-                    
-                  ),
-                  
             ),
-
           ],
         ),
       ),
