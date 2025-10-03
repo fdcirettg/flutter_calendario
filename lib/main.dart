@@ -7,10 +7,9 @@ import 'settings_controller.dart';
 import 'app_scaffold.dart';
 import 'agenda_page.dart';
 import 'configuracion_page.dart';
-import 'theme_provider.dart';
-import 'app_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'logo_manager.dart';
+import 'app_logo.dart';
 
 void main() {  
   Get.put(SettingsController());
@@ -70,6 +69,11 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
+          AppLogo(
+              width: 120,
+              height: 120,
+              borderRadius: BorderRadius.circular(12),),
+          SizedBox(height: 16),
           Center(
             child: Text(
               nombreVeterinaria,
