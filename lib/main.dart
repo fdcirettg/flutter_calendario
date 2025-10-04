@@ -10,9 +10,12 @@ import 'configuracion_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'logo_manager.dart';
 import 'app_logo.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {  
+void main() async {  
+  WidgetsFlutterBinding.ensureInitialized();
   Get.put(SettingsController());
+  await dotenv.load(fileName: ".env");
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),

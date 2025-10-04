@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'app_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_logo.dart';
 
