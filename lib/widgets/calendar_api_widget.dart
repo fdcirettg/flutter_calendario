@@ -61,7 +61,7 @@ class _GoogleCalendarApiWidgetState extends State<GoogleCalendarApiWidget> {
   Future<void> _loadCalendarUrl() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _calendarId = prefs.getString('calendar_url') ?? '';
+      _calendarId = prefs.getString('calendar_id') ?? '';
     });
   }
   Future<void> _loadCalendarEvents() async {

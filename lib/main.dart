@@ -12,6 +12,7 @@ import 'logo_manager.dart';
 import 'app_logo.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/transparent_google_auth.dart';
+import 'widgets/calendar_main_widget.dart';
 
 
 void main() async {  
@@ -97,6 +98,8 @@ class _MyHomePageState extends State<MyHomePage> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
           ),
+          Divider(color: Colors.grey.shade300),
+          Expanded(child: MiCalendarioConAPI()),
         ],
       ),
     );
