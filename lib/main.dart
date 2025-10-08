@@ -11,11 +11,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'logo_manager.dart';
 import 'app_logo.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'services/transparent_google_auth.dart';
+
 
 void main() async {  
   WidgetsFlutterBinding.ensureInitialized();
   Get.put(SettingsController());
   await dotenv.load(fileName: ".env");
+
+  try {
+    print('Iniciando aplicación...');
+    final authResult = await TransparentGoogleAuthService.initializeTransparentAuth();
+    if (authResult) {
+      print('Autenticación exitosa!');
+    } else {
+      print('Autenticación no disponible... funcionalidad limitada :/');
+    }
+  } catch (error) {
+  print('Error en autenticación (la app continuará): $error');
+  }
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
