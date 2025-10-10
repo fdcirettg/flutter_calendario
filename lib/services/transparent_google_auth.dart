@@ -11,7 +11,7 @@ class TransparentGoogleAuthService {
   
   // Scopes necesarios para Google Calendar
   static const List<String> _scopes = [
-    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
   ];
@@ -74,7 +74,7 @@ class TransparentGoogleAuthService {
         print('⚠️ Plataforma no soportada para Google Sign-In');
         return false;
       }
-      
+      await _instance.signOut(); // Asegurar estado limpio
       // Intentar login silencioso primero
       final user = await _instance.signInSilently();
       
