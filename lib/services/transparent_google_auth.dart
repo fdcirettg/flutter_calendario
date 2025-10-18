@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io' show Platform;
 
@@ -28,6 +29,9 @@ class TransparentGoogleAuthService {
           signInOption: SignInOption.standard,
         );
       } else {
+        if (clientId == null || clientId.isEmpty) {
+          print('⚠️ GOOGLE_CLIENT_ID no encontrado en .env — inicia sesión en Desktop podría fallar');
+        }
         _googleSignIn = GoogleSignIn(
           scopes: _scopes,
           signInOption: SignInOption.standard,
@@ -54,14 +58,17 @@ class TransparentGoogleAuthService {
     // Nota: macOS puede tener problemas con Google Sign-In
     try {
       if (!kIsWeb && Platform.isMacOS) {
-        print('⚠️ macOS detectado - autenticación puede ser limitada');
-        return false;
+        print('⚠️ macOS detectado - autenticación puede ser limitada - añadir GIDCLientID en macos/Runner/Info.plist');
+        
       }
-      return true;
+      //return true;
     } catch (e) {
       // Si no podemos detectar la plataforma, asumimos que está soportada
       return true;
     }
+
+    // Default: consider supported
+    return true;
   }
 
   // Inicialización automática y transparente
@@ -199,5 +206,45 @@ class TransparentGoogleAuthService {
     if (_authHeaders == null) return null;
     
     return http.Client();
+  }
+
+  // Obtener el client id usado (desde .env)
+  static String? get clientId => dotenv.env['GOOGLE_CLIENT_ID'];
+
+  // Forzar reautenticación: cerrar sesión y volver a inicializar
+  static Future<bool> reAuthenticate() async {
+    await signOut();
+    return await initializeTransparentAuth();
+  }
+
+  // Helper de depuración: llamar a tokeninfo para inspeccionar el access_token
+  static Future<Map<String, dynamic>?> debugTokenInfo() async {
+    if (_currentUser == null) {
+      print('⚠️ debugTokenInfo: no hay usuario autenticado');
+      return null;
+    }
+
+    try {
+      final auth = await _currentUser!.authentication;
+      final token = auth.accessToken;
+      if (token == null) {
+        print('⚠️ debugTokenInfo: access token no disponible');
+        return null;
+      }
+
+      final uri = Uri.parse('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=$token');
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final body = json.decode(res.body) as Map<String, dynamic>;
+        print('🔎 tokeninfo: $body');
+        return body;
+      } else {
+        print('❌ tokeninfo failed: ${res.statusCode} ${res.body}');
+        return {'error': 'HTTP ${res.statusCode}', 'body': res.body};
+      }
+    } catch (e) {
+      print('❌ Error debugTokenInfo: $e');
+      return {'error': e.toString()};
+    }
   }
 }

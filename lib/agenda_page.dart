@@ -328,7 +328,26 @@ class _AgendaPageState extends State<AgendaPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 TextButton.icon(icon: Icon(Icons.refresh), label: Text('Actualizar'), onPressed: () => _fetchEventsForDay(_selectedDate)),
-                ElevatedButton.icon(icon: Icon(Icons.add), label: Text('Nuevo evento'), onPressed: () => _showEventDialog()),
+                Row(children: [
+                  ElevatedButton.icon(icon: Icon(Icons.add), label: Text('Nuevo evento'), onPressed: () => _showEventDialog()),
+                  SizedBox(width: 8),
+                  // Reautenticar y mostrar tokeninfo para depuración en desktop
+                  TextButton.icon(
+                    icon: Icon(Icons.lock_reset),
+                    label: Text('Reautenticar'),
+                    onPressed: () async {
+                      final ok = await TransparentGoogleAuthService.reAuthenticate();
+                      if (!ok) {
+                        _showMessage('Reautenticación fallida');
+                        return;
+                      }
+
+                      final info = await TransparentGoogleAuthService.debugTokenInfo();
+                      await showDialog(context: context, builder: (ctx) => AlertDialog(title: Text('Token info'), content: SingleChildScrollView(child: Text(info == null ? 'No token' : info.toString())), actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('OK'))]));
+                      await _fetchEventsForDay(_selectedDate);
+                    },
+                  ),
+                ])
               ],
             )
           ],

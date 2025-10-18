@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/transparent_google_auth.dart';
-import 'dart:io' show Platform;
+// Platform checks removed; rely on authentication state instead.
 
 class CalendarWeekWidget extends StatefulWidget {
   const CalendarWeekWidget({Key? key}) : super(key: key);
@@ -36,15 +35,6 @@ class _CalendarWeekWidgetState extends State<CalendarWeekWidget> {
   Future<void> _initializeCalendar() async {
     await _loadCalendarUrl();
     
-    // Verificar si estamos en una plataforma no soportada
-    if (!kIsWeb && Platform.isMacOS) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'La funcionalidad de calendario no está disponible en esta plataforma. Usa la versión web para acceso completo.';
-      });
-      return;
-    }
-    
     if (_calendarId.isNotEmpty) {
       await _loadWeekEvents();
     } else {
@@ -58,7 +48,7 @@ class _CalendarWeekWidgetState extends State<CalendarWeekWidget> {
   Future<void> _loadCalendarUrl() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _calendarId = prefs.getString('calendar_url') ?? '';
+      _calendarId = prefs.getString('calendar_id') ?? '';
     });
   }
 
